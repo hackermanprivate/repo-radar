@@ -1,0 +1,40 @@
+name: rising
+
+on:
+  schedule:
+    - cron: "17 4 * * *"   # daily, 04:17 UTC = 09:47 IST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rising
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build today's snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/build_rising.py
+
+      - name: Commit if the data changed
+        run: |
+          git config user.name "repo-radar bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- RISING.md; then
+            echo "no change today"
+            exit 0
+          fi
+          git add RISING.md
+          git commit -m "chore: rising snapshot $(date -u +%Y-%m-%d)"
+          git push
